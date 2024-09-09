@@ -196,3 +196,79 @@ Your website should now work with HTTPS in **Full (Strict)** mode.
 
 ### 8.2 Self-Signed Certificate
 
+1. Disconnect Cloudflare - switch from Cloudflare nameservers to AWS nameservers.
+
+Create a Route 53 Hosted Zone and copy the nameservers from it to your domain's advanced settings.
+
+Add records to point your domain to your EC2 instance:
+![Route 53 Hosted Zone Records](assets/route53-hosted-zone.png)
+
+Open `https://your_domain` and you will encounter this error:
+![Https error](assets/https-error.png)
+
+This error occurs because the self-signed certificate is not trusted by your computer since Cloudflare is disabled for your website.
+
+The certificate is valid for your domain and its subdomains, but due to the absence of a root CA and intermediate CA in the chain, the web browser is unable to verify the certificate successfully.
+![Invalid certificate](assets/invalid-cert.png)
+
+#### Create a Self-Signed Certificate using OpenSSL
+
+1. **CSR - Certificate Signing Request**  
+   A CSR (Certificate Signing Request) is required when generating an SSL certificate. It consists of two parts:
+   - **Subject Name**: Identifies the domain.
+   - **Public Key**: Used to encrypt data.
+
+   **Recommendation:**  
+   Choose the CN (Common Name) according to the main domain where the certificate will be used. It could be a wildcard (`*.your_domain`) or just your domain.
+
+2. **Delete the old certificate (Origin certificate from Cloudflare) along with its private key.**
+
+Go to `/etc/ssl` and run the following command to create a self-signed certificate:
+```bash
+openssl req -x509 -newkey rsa:4096 -keyout your_domain.com.key -out your_domain.com.pem -days 365
+```
+![Creating self-signed cert](assets/create-s-s-cert.png)
+
+3. **Create a passphrase file**  
+   Create a file named `passphrase.pass` and store your passphrase in it.
+
+4. **Include the passphrase file in the Nginx configuration using `ssl_password_file`:**
+```nginx
+server {
+
+    listen   443;
+    listen   [::]:443;
+
+    ssl    on;
+    ssl_certificate    /etc/ssl/your_domain.com.pem;
+    ssl_certificate_key    /etc/ssl/your_domain.com.key;
+    ssl_password_file /etc/ssl/passphrase.pass;
+
+    server_name your_domain.com www.your_domain.com;
+
+    root /var/www/your_domain.com/html;
+
+    # Default file to serve
+    index index.html index.htm;
+
+    # Serve static files (images, CSS, JS, etc.)
+    location / {
+        try_files $uri $uri/ =404;
+    }
+} 
+```
+
+Here is the self-signed certificate:
+![Self-signed Certificate](assets/sscert.png)
+
+This certificate is not trusted by browsers, but it can be used with Cloudflare.
+
+5. **Switch back to Cloudflare nameservers.**
+
+- In **Full (Strict)** mode:
+![Self-sign Cert in Full Strict Mode](assets/ssc-full-strict.png)
+
+- In **Full** mode:
+![Self-sign Cert in Full Mode](assets/ssc-full.png)
+
+**Note:** A self-signed certificate cannot be directly served to the browser. However, it can be used between servers, such as between your web server and Cloudflare servers.
