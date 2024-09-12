@@ -1,6 +1,6 @@
-# Setting Up Your Domain and Server with Cloudflare and Nginx
+# Deploying a Secure Web Server with Cloudflare, Nginx, and SSL/TLS on AWS EC2
 
-This guide will help you set up a domain, launch an EC2 instance, configure Cloudflare as a reverse proxy, and set up Nginx on your server.
+This detailed guide provides step-by-step instructions for setting up a secure web server environment. Starting with the purchase of a domain and launching an EC2 instance on AWS, you'll configure Cloudflare as a reverse proxy to protect and accelerate your site. The guide also covers setting up Nginx to handle web traffic and securing your site with SSL certificates. You’ll learn how to implement multiple types of SSL certificates, including self-signed certificates, Cloudflare Origin SSL, and certificates from trusted providers like Let's Encrypt and ZeroSSL. By the end, your server will be fully configured for high performance and security, including best practices like Forward Secrecy and HTTPS redirection.
 
 ## 1. Purchase a Domain
 Purchase your own domain. For this guide, the domain was purchased from [domain.com](https://domain.com).
@@ -365,179 +365,6 @@ sudo certbot renew --dry-run
 ```
    ![Test cert renewal](assets/renewal-dry-run.png)
 
-
-<!-- ### 10. Creating Custom TLS Certificate
-
-1. Clean up:
-```bash
-# 1. Revoke the certificate
-sudo certbot revoke --cert-path /etc/letsencrypt/live/your_domain/fullchain.pem
-
-# 2. Update Nginx Configuration
-# (Make sure to manually open the file and remove SSL lines related to Let's Encrypt)
-sudo nano /etc/nginx/sites-available/your_domain
-
-# Test Nginx configuration
-sudo nginx -t
-
-# Reload Nginx to apply changes
-sudo systemctl reload nginx
-```
-
-2. Find an appropiate certificate provider, I used [ZeroSSL]()
-3. Generate CSR:
-
-Go to the /etc/ssl folder and run this command:
-```bash
-sudo openssl req -new -newkey rsa:4096 -nodes -keyout your_domain.key -out your_domain.csr
-```
-Note: with "-nodes" option private key in the ".key" will be stored unencrypted.
-
-Verify your domain adding CNAME record:
-![Add CNAME record to verify your domain](assets/cname-record-verify.png)
-
-Get an email with your certificate:
-![Certificate](assets/download-cert.png)
-
-Go to /etc/ssl folder
-
-Delete your_domain.csr request file, because we do not need it anymore:
-```bash
-cd /etc/ssl
-sudo rm your_domain.csr
-```
-Create certificate file and paste there your new certificate:
-```bash
-sudo nano your_domain.pem
-```
-Verify your configuration in /etc/nginx/sites-available/your_domain:
-```nginx
-server {
-    listen 80;
-
-    server_name your_domain.com www.your_domain.com;
-
-    # Root directory for the static files
-    root /var/www/your_domain.com/html;
-
-    # Default file to serve
-    index index.html index.htm;
-
-    # Serve static files (images, CSS, JS, etc.)
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
-
-server {
-    listen 443 ssl;
-
-    server_name your_domain.com www.your_domain.com;
-
-    # SSL certificate and key files
-    ssl_certificate /etc/ssl/your_domain.com.pem;
-    ssl_certificate_key /etc/ssl/your_domain.com.key;
-
-    # Root directory for the static files
-    root /var/www/your_domain.com/html;
-
-    # Default file to serve
-    index index.html index.htm;
-
-    # Serve static files (images, CSS, JS, etc.)
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
-```
-
-Go to https://your_domain and is webpage reloaded successfully:
-![Custom Certificate successfully installed](assets/custom-cert.png)
-
-Retrive public key from certificate for testing purposes:
-```bash
-openssl x509 -modulus -noout < your_domain.pem | sed s/Modulus=/0x/
-```
-
-But there is a problem, our TLS setup is incorrect we need to specify in our chain and intermediate CA, so we need to add an intermediate certificate below the our certificate in your_domain.pem file and reload nginx.
-Then got to any scanner to verify setup:
-![Correct TLS setup](assets/correct-chain.png)
-
-Now, verify grade of our TLS setup [here](https://globalsign.ssllabs.com/analyze.html?d=aivazart.com):
-
-I got grade B for the first time:
-![Grade B](assets/grade-b.png)
-
-So we can resolve it by enhancing security in the next steps:
-Enable Forward Secrecy for all browsers: You can do this by configuring your web server (Nginx) to prefer ciphers that support FS. In your case, ECDHE-based ciphers are already in use, but some weaker ciphers are also enabled. You need to disable those weaker ciphers and ensure ECDHE suites are preferred.
-
-Update Nginx SSL Configuration: Modify your Nginx configuration file to prioritize strong cipher suites that support Forward Secrecy, such as ECDHE suites, and disable weaker ones like RSA. Below is an example configuration to improve your rating:
-
-nginx
-Copy code
-ssl_protocols TLSv1.2 TLSv1.3;
-ssl_prefer_server_ciphers on;
-ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
-ssl_dhparam /etc/nginx/ssl/dhparam.pem;
-This ensures:
-
-Forward Secrecy is prioritized by using ECDHE ciphers.
-Weak ciphers are removed.
-Generate a strong dhparam file: Forward Secrecy also depends on using strong Diffie-Hellman (DH) parameters. Generate a 4096-bit dhparam file by running:
-
-bash
-Copy code
-sudo openssl dhparam -out /etc/nginx/ssl/dhparam.pem 2048
-
-Now we got A grade:
-![Grade A](assets/grade-a.png)
-
-
-Now, let's enable redirection from http to https communication, as well as from www.your_domain to your_domain:
-
-Update file /etc/nginx/sites-available/your_domain so that:
-```nginx
-server {
-    listen 80;
-    server_name aivazart.com www.aivazart.com;
-    return 301 https://aivazart.com$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name aivazart.com www.aivazart.com;
-
-    # SSL certificate and key files
-    ssl_certificate /etc/ssl/aivazart.com.pem;
-    ssl_certificate_key /etc/ssl/aivazart.com.key;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
-    ssl_dhparam /etc/ssl/dhparam.pem;
-
-    # Root directory for the static files
-    root /var/www/aivazart.com/html;
-    index index.html index.htm;
-
-    # Serve static files (images, CSS, JS, etc.)
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name www.aivazart.com;
-    return 301 https://aivazart.com$request_uri;
-}
-```
-
-Before:
-![Before](assets/before.png)
-
-After:
-![After](assets/after.png) -->
 ### 10. Creating Custom TLS Certificate
 
 1. Clean up:
@@ -719,3 +546,11 @@ Before:
 
 After:
 ![After](assets/after.png)
+
+## To sum up
+
+### Conclusion:
+By following this guide, you've successfully set up a secure web server environment using Cloudflare and Nginx on an AWS EC2 instance. We explored several methods to secure your website with SSL certificates, including using Cloudflare's **Origin SSL** certificates, generating **self-signed certificates** using OpenSSL, and obtaining certificates from trusted providers like **ZeroSSL** and **Let's Encrypt** through the Certbot ACME client. Each of these certificates provides varying levels of security, with **self-signed certificates** useful for internal or testing environments, and **Let’s Encrypt** or **ZeroSSL** offering free, automated, and widely trusted solutions for production use. Additionally, enabling Forward Secrecy and proper HTTPS redirection ensures that your site maintains the highest standards of modern web security, providing a reliable and secure experience for your users.
+
+---
+Special thanks to [Bogdan Stashchuk](https://www.youtube.com/@Bogdan_Stashchuk) for completing this project!
