@@ -558,4 +558,4 @@ After:
 By following this guide, you've successfully set up a secure web server environment using Cloudflare and Nginx on an AWS EC2 instance. We explored several methods to secure your website with SSL certificates, including using Cloudflare's **Origin SSL** certificates, generating **self-signed certificates** using OpenSSL, and obtaining certificates from trusted providers like **ZeroSSL** and **Let's Encrypt** through the Certbot ACME client. Each of these certificates provides varying levels of security, with **self-signed certificates** useful for internal or testing environments, and **Let’s Encrypt** or **ZeroSSL** offering free, automated, and widely trusted solutions for production use. Additionally, enabling Forward Secrecy and proper HTTPS redirection ensures that your site maintains the highest standards of modern web security, providing a reliable and secure experience for your users.
 
 ---
-Special thanks to [Bogdan Stashchuk](https://www.youtube.com/@Bogdan_Stashchuk) for completing this project!
+Special thanks to [Bogdan Stashchuk](https://www.youtube.com/@Bogdan_Stashchuk) for your great tutorials!
