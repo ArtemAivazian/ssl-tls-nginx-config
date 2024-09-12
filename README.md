@@ -272,3 +272,97 @@ This certificate is not trusted by browsers, but it can be used with Cloudflare.
 ![Self-sign Cert in Full Mode](assets/ssc-full.png)
 
 **Note:** A self-signed certificate cannot be directly served to the browser. However, it can be used between servers, such as between your web server and Cloudflare servers.
+
+
+### 9.0 Getting Certificate from Let's Encrypt
+
+I will use Certbot ACME client to do it.
+
+Certbot automates the process of domain verification, creation of CSR (Certificate Signing Request), obtaining certificate, and renewing certificate.
+
+1. Create a Hosted Zone on AWS Route 53 Service and set up A records to point to your AWS EC2 Public IP address:
+   ![Hosted Zone](assets/route53-hosted-zone.png)
+
+2. Set nameservers on domain.com:
+   ![Nameservers](assets/ns.png)
+
+3. Connect to your EC2 instance.
+
+4. Upgrade Nginx to the latest stable version (Optional).
+
+Create a script at `/usr/local/sbin/upgrade_nginx.sh` and set related permissions and ownership:
+```bash
+sudo touch /usr/local/sbin/upgrade_nginx.sh
+sudo chown root:root /usr/local/sbin/upgrade_nginx.sh
+sudo chmod 700 /usr/local/sbin/upgrade_nginx.sh
+```
+
+Then, paste this into `/usr/local/sbin/upgrade_nginx.sh`:
+```bash
+#!/bin/bash
+
+# Define variables
+NGINX_BACKUP_DIR="/etc/nginx-backup-$(date +%Y%m%d%H%M%S)"
+WWW_BACKUP_DIR="/var/www-backup-$(date +%Y%m%d%H%M%S)"
+DOMAIN="your_domain"
+NGINX_REPO="https://nginx.org/packages/ubuntu"
+
+# Backup Nginx configuration and website data
+sudo cp -r /etc/nginx $NGINX_BACKUP_DIR
+sudo cp -r /var/www/$DOMAIN $WWW_BACKUP_DIR
+
+# Add the official Nginx repository
+sudo apt update
+sudo apt install curl gnupg2 ca-certificates lsb-release -y
+curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo apt-key add -
+echo "deb $NGINX_REPO $(lsb_release -cs) nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
+
+# Update and upgrade Nginx
+sudo apt update
+sudo apt install nginx -y
+
+# Test Nginx configuration and restart
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+Run the script:
+```bash
+sudo /usr/local/sbin/upgrade_nginx.sh
+```
+
+Optional: create a systemd timer to run this script periodically.
+
+5. Install the Certbot ACME Client:
+
+Ensure that your snap version is up to date:
+```bash
+sudo snap install core; sudo snap refresh core
+```
+
+6. Install Certbot using Snap for Nginx. You can follow the [Certbot instructions](https://certbot.eff.org/instructions?ws=nginx&os=snap).
+
+7. Include this line at the end of the `http` section in the `/etc/nginx/nginx.conf` file:
+```
+include /etc/nginx/sites-enabled/*; 
+```
+
+8. Before obtaining a real certificate, run this command to test your setup in the staging environment:
+```bash
+sudo certbot --nginx --test-cert
+```
+   ![Testing certificate](assets/test-cert.png)
+
+9. Now obtain a real certificate and replace the existing one:
+```bash
+sudo certbot --nginx
+```
+   ![Valid Let's Encrypt Certificate](assets/valid-letsencrypt-cert.png)
+
+10. Check if automatic renewal is enabled:
+```bash
+sudo certbot renew --dry-run
+```
+   ![Test cert renewal](assets/renewal-dry-run.png)
+
+
