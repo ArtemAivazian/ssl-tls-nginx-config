@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="assets/nginx-logo.png" alt="nginx" width="300" height="180">
+  <img src="assets/ssl-logo.png" alt="ssl" width="300" height="200">
+</p>
+
 # Deploying a Secure Web Server with Cloudflare, Nginx, and SSL/TLS on AWS EC2
 
 This detailed guide provides step-by-step instructions for setting up a secure web server environment. Starting with the purchase of a domain and launching an EC2 instance on AWS, you'll configure Cloudflare as a reverse proxy to protect and accelerate your site. The guide also covers setting up Nginx to handle web traffic and securing your site with SSL certificates. You’ll learn how to implement multiple types of SSL certificates, including self-signed certificates, Cloudflare Origin SSL, and certificates from trusted providers like Let's Encrypt and ZeroSSL. By the end, your server will be fully configured for high performance and security, including best practices like Forward Secrecy and HTTPS redirection.
